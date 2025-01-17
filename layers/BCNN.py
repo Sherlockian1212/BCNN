@@ -84,5 +84,5 @@ class BCNN(moduleWrapper):
     def klLoss(self):
         kl=KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
         if self.use_bias:
-            kl +=KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
+            kl += KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
         return kl

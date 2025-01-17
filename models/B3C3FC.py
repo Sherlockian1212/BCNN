@@ -1,4 +1,3 @@
-import math
 import torch.nn as nn
 from layers import BCNN, BLinear
 from layers.misc import flattenLayer, moduleWrapper

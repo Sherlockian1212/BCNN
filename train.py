@@ -1,4 +1,3 @@
-import os
 import torch
 import numpy as np
 from torch.optim import Adam, lr_scheduler
@@ -7,9 +6,34 @@ from metrics.beta import getBeta
 from metrics.ELBO import ELBO
 from utils.logMeanExp import logMeanExp
 from models.B3C3FC import B3C3FC
+from data.CustomDataset import CustomDataset
+from sklearn.model_selection import train_test_split
+from torchvision import transforms
+import os
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+DATA_PATH = r"E:\DATA_Lung\Luna16.v1i.coco\train"
+JSON_PATH = r"E:\DATA_Lung\Luna16.v1i.coco\train\_annotations.coco.json"
+
+
+def getDataset(root, annotation_file, transform):
+    dataset = CustomDataset(root=root, annotation_file=annotation_file, transform=transform)
+    train_ids, val_test_ids = train_test_split(dataset.ids, test_size=0.3, random_state=42)
+    val_ids, test_ids = train_test_split(val_test_ids, test_size=0.5, random_state=42)
+
+    train_dataset = torch.utils.data.Subset(dataset, train_ids)
+    val_dataset = torch.utils.data.Subset(dataset, val_ids)
+    test_dataset = torch.utils.data.Subset(dataset, test_ids)
+
+    return train_dataset, val_dataset, dataset[0][0].shape[0], len(dataset)
+
+
+def getDataloader(trainset, valset, valid_size, batch_size, num_workers):
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True,
+                                               num_workers=num_workers)
+    val_loader = torch.utils.data.DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return train_loader, val_loader, None
 def acc(outputs, targets):
     return np.mean(outputs.cpu().numpy().argmax(axis=1) == targets.data.cpu().numpy())
 
@@ -22,6 +46,7 @@ def train(net, optimizer, criterion, trainloader, num_ens=1, beta_type=0.1, epoc
     for i, (inputs, labels) in enumerate(trainloader, 1):
         optimizer.zero_grad()
         inputs, labels = inputs.to(device), labels.to(device)
+        labels = labels.squeeze()
         outputs = torch.zeros(inputs.shape[0], net.num_classes, num_ens).to(device)
 
         kl = 0.0
@@ -76,18 +101,20 @@ def run(dataset):
     }
     train_ens = 1
     valid_ens = 1
-    n_epochs = 200
+    n_epochs = 2
     lr_start = 0.001
     num_workers = 4
     valid_size = 0.2
     batch_size = 32
     beta_type = 0.1
 
-    trainset, testset, inputs, outputs = data.getDataset(dataset)
-    train_loader, valid_loader, test_loader = data.getDataloader(
-        trainset, testset, valid_size, batch_size, num_workers)
+    transform = transforms.Compose([transforms.Resize((128, 128)),
+                                    transforms.ToTensor()])
 
-    net = B3C3FC(outputs, inputs, priors, activation_type)
+    trainset, valset, inputs, outputs = getDataset(DATA_PATH, JSON_PATH, transform)
+    train_loader, valid_loader, _ = getDataloader(trainset, valset, valid_size, batch_size, num_workers)
+
+    net = B3C3FC(inputs, outputs, priors, activation_type)
 
     ckpt_dir = f'checkpoints/{dataset}/bayesian'
     ckpt_name = f'checkpoints/{dataset}/bayesian/model_B3C3FC_{activation_type}.pt'
@@ -117,3 +144,8 @@ def run(dataset):
                 valid_loss_max, valid_loss))
             torch.save(net.state_dict(), ckpt_name)
             valid_loss_max = valid_loss
+
+
+if __name__ == "__main__":
+    dataset = "Luna16"  # Tên dataset (hoặc thay bằng tên bạn muốn)
+    run(dataset)

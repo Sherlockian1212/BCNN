@@ -2,8 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch.nn import Parameter
 
-from misc.moduleWrapper import moduleWrapper
-from metrics import KL
+from layers.misc.moduleWrapper import moduleWrapper
+from metrics.KL import KL
 
 class BCNN(moduleWrapper):
     def __init__(self, inp_channels,
@@ -38,11 +38,16 @@ class BCNN(moduleWrapper):
         self.posterior_mu_initial = priors['posterior_mu_initial']
         self.posterior_rho_initial = priors['posterior_rho_initial']
 
-        self.W_mu = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size), device=self.device)
-        self.W_rho = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size), device=self.device)
+        if isinstance(kernel_size, int):
+            self.kernel_size = (kernel_size, kernel_size)
+        else:
+            self.kernel_size = kernel_size
+
+        self.W_mu = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size)).to(self.device)
+        self.W_rho = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size)).to(self.device)
         if self.use_bias:
-            self.bias_mu = Parameter(torch.Tensor(out_channels), device=self.device)
-            self.bias_rho = Parameter(torch.Tensor(out_channels), device=self.device)
+            self.bias_mu = Parameter(torch.Tensor(out_channels)).to(self.device)
+            self.bias_rho = Parameter(torch.Tensor(out_channels)).to(self.device)
         else:
             self.register_parameter('bias_mu', None)
             self.register_parameter('bias_rho', None)
@@ -73,7 +78,7 @@ class BCNN(moduleWrapper):
             weight = self.W_mu
             bias = self.bias_mu if self.use_bias else None
 
-        return F.conv2d(input=input,
+        return F.conv2d(input=x,
                         weight=weight,
                         bias=bias,
                         stride=self.stride,
@@ -82,7 +87,7 @@ class BCNN(moduleWrapper):
                         groups=self.groups)
 
     def klLoss(self):
-        kl=KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
+        kl = KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
         if self.use_bias:
             kl += KL(self.prior_mu, self.prior_sigma, self.W_mu, self.W_sigma)
         return kl

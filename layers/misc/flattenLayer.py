@@ -1,4 +1,4 @@
-from moduleWrapper import moduleWrapper
+from layers.misc.moduleWrapper import moduleWrapper
 
 class flattenLayer(moduleWrapper):
     def __init__(self, num_features):

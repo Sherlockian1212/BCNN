@@ -2,8 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch.nn import Parameter
 
-from misc.moduleWrapper import moduleWrapper
-from metrics import KL
+from layers.misc.moduleWrapper import moduleWrapper
+from metrics.KL import KL
 
 class BLinear(moduleWrapper):
     def __init__(self, inp_channels, out_channels, bias=True, priors=None):
@@ -25,11 +25,11 @@ class BLinear(moduleWrapper):
         self.posterior_mu_initial = priors['posterior_mu_initial']
         self.posterior_rho_initial = priors['posterior_rho_initial']
 
-        self.W_mu = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size), device=self.device)
-        self.W_rho = Parameter(torch.Tensor(out_channels, inp_channels, *self.kernel_size), device=self.device)
+        self.W_mu = Parameter(torch.Tensor(out_channels, inp_channels).to(self.device))
+        self.W_rho = Parameter(torch.Tensor(out_channels, inp_channels).to(self.device))
         if self.use_bias:
-            self.bias_mu = Parameter(torch.Tensor(out_channels), device=self.device)
-            self.bias_rho = Parameter(torch.Tensor(out_channels), device=self.device)
+            self.bias_mu = Parameter(torch.Tensor(out_channels).to(self.device))
+            self.bias_rho = Parameter(torch.Tensor(out_channels).to(self.device))
         else:
             self.register_parameter('bias_mu', None)
             self.register_parameter('bias_rho', None)
